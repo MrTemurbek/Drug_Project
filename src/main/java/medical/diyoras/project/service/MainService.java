@@ -104,6 +104,7 @@ public class MainService {
                         double randomDouble = min + (max - min) * random.nextDouble();
                         entity.setRetailPrice(String.valueOf(retail * randomDouble));
                     }
+
                     i++;
                 }
                 entities.add(entity);
