@@ -12,10 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class MainService {
@@ -65,8 +62,9 @@ public class MainService {
     @SneakyThrows
     public void importDrugs(MultipartFile file) {
         IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
-        List<DrugEntity> entities = new ArrayList<>();
+        Set<DrugEntity> entities = new HashSet<>();
         Random random = new Random();
+        int count = 0;
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rows = sheet.iterator();
@@ -107,10 +105,12 @@ public class MainService {
 
                     i++;
                 }
-                entities.add(entity);
+                if (entities.add(entity)){
+                    drugRepo.save(entity);
+                    count++;
+                    System.out.println("count: "+count);
+                }
             }
-
-            drugRepo.saveAll(entities);
         }
     }
 
