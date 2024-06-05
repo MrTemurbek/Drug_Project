@@ -26,4 +26,10 @@ public class MainController {
         service.importDrugs(file);
         return ResponseEntity.ok("ok");
     }
+
+    @PostMapping("/upload/sales")
+    public ResponseEntity three(@RequestParam("file") MultipartFile file){
+        service.importTransaction(file);
+        return ResponseEntity.ok("ok");
+    }
 }

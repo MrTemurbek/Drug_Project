@@ -114,4 +114,59 @@ public class MainService {
         }
     }
 
+    @SneakyThrows
+    public void importTransaction(MultipartFile file) {
+        IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
+        Set<DrugEntity> entities = new HashSet<>();
+        Random random = new Random();
+        int count = 0;
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Iterator<Row> rows = sheet.iterator();
+            if (rows.hasNext()) {
+                rows.next();
+            }
+            while (rows.hasNext()) {
+                Row currentRow = rows.next();
+                DrugEntity entity = new DrugEntity();
+                int i = 0;
+                boolean finish = false;
+                for (Cell currentCell : currentRow) {
+
+
+                    String cellValue = switch (currentCell.getCellType()) {
+                        case STRING -> currentCell.getStringCellValue();
+                        case NUMERIC -> String.valueOf(currentCell.getNumericCellValue());
+                        default -> "";
+                    };
+                    if (cellValue.isBlank()){
+                        break;
+                    }
+
+                    if (i == 0) {
+                        entity.setMaterial(Long.parseLong(cellValue));
+                    } else if (i == 1) {
+                        entity.setMaterialName(cellValue);
+                    } else if (i == 2) {
+                        entity.setManufacture(cellValue);
+                    } else if (i == 3) {
+                        entity.setDistributionPrice(cellValue);
+                        double retail = Double.parseDouble(cellValue);
+                        double min = 0.93;
+                        double max = 0.97;
+                        double randomDouble = min + (max - min) * random.nextDouble();
+                        entity.setRetailPrice(String.valueOf(retail * randomDouble));
+                    }
+
+                    i++;
+                }
+                if (entities.add(entity)){
+                    drugRepo.save(entity);
+                    count++;
+                    System.out.println("count: "+count);
+                }
+            }
+        }
+    }
+
 }
