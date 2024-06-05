@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DrugRepo extends JpaRepository<DrugEntity, Long> {
+    DrugEntity getDrugEntitiesByMaterial(Long materialId);
 }

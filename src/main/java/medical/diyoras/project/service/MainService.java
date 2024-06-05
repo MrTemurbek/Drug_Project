@@ -1,10 +1,13 @@
 package medical.diyoras.project.service;
 
 import lombok.SneakyThrows;
+import medical.diyoras.project.dto.CheckDTO;
 import medical.diyoras.project.entity.DrugEntity;
 import medical.diyoras.project.entity.PointEntity;
+import medical.diyoras.project.entity.TransactionEntity;
 import medical.diyoras.project.repo.DrugRepo;
 import medical.diyoras.project.repo.PointRepo;
+import medical.diyoras.project.repo.TransactionRepo;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.util.IOUtils;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -17,9 +20,11 @@ import java.util.*;
 @Service
 public class MainService {
     @Autowired
-    PointRepo pointRepository;
+    PointRepo pointRepo;
     @Autowired
     DrugRepo drugRepo;
+    @Autowired
+    TransactionRepo transactionRepo;
 
     @SneakyThrows
     public void importPoints(MultipartFile file) {
@@ -53,8 +58,7 @@ public class MainService {
                 }
                 entities.add(entity);
             }
-
-            pointRepository.saveAll(entities);
+            pointRepo.saveAll(entities);
         }
     }
 
@@ -117,9 +121,10 @@ public class MainService {
     @SneakyThrows
     public void importTransaction(MultipartFile file) {
         IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
-        Set<DrugEntity> entities = new HashSet<>();
+        Set<CheckDTO> entities = new HashSet<>();
         Random random = new Random();
         int count = 0;
+        int finish = 0;
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rows = sheet.iterator();
@@ -128,11 +133,13 @@ public class MainService {
             }
             while (rows.hasNext()) {
                 Row currentRow = rows.next();
-                DrugEntity entity = new DrugEntity();
+                TransactionEntity entity = new TransactionEntity();
                 int i = 0;
-                boolean finish = false;
                 for (Cell currentCell : currentRow) {
-
+                    if (currentCell.getCellType() == CellType.BLANK){
+                        finish++;
+                        break;
+                    }
 
                     String cellValue = switch (currentCell.getCellType()) {
                         case STRING -> currentCell.getStringCellValue();
@@ -144,26 +151,42 @@ public class MainService {
                     }
 
                     if (i == 0) {
-                        entity.setMaterial(Long.parseLong(cellValue));
+                        entity.setDrug(drugRepo.getDrugEntitiesByMaterial(Long.parseLong(cellValue)));
                     } else if (i == 1) {
-                        entity.setMaterialName(cellValue);
-                    } else if (i == 2) {
-                        entity.setManufacture(cellValue);
-                    } else if (i == 3) {
-                        entity.setDistributionPrice(cellValue);
-                        double retail = Double.parseDouble(cellValue);
-                        double min = 0.93;
-                        double max = 0.97;
+                        Optional<PointEntity> pointEntitiesByCode = pointRepo.getPointEntitiesByCode(cellValue);
+                        if (pointEntitiesByCode.isPresent()){
+                            entity.setPoint(pointEntitiesByCode.get());
+                        } else {
+                            PointEntity point = pointRepo.save(new PointEntity(cellValue, "-1"));
+                            entity.setPoint(point);
+                        }
+
+                    } else if (i == 4) {
+                        entity.setQuantity(Double.parseDouble(cellValue));
+                    } else if (i == 5) {
+                        double realPrice  = Double.parseDouble(cellValue);
+                        entity.setRealPrice(realPrice);
+                        double min = 1.10;
+                        double max = 1.15;
                         double randomDouble = min + (max - min) * random.nextDouble();
-                        entity.setRetailPrice(String.valueOf(retail * randomDouble));
+                        entity.setSalePrice(randomDouble * realPrice);
                     }
 
                     i++;
                 }
-                if (entities.add(entity)){
-                    drugRepo.save(entity);
+                if (entities.add(new CheckDTO(entity.getDrug().getMaterial(), entity.getPoint().getCode()))){
+                    transactionRepo.save(entity);
                     count++;
                     System.out.println("count: "+count);
+                }
+                else {
+                    TransactionEntity byDrugAndPoint = transactionRepo.findByDrugAndPoint(entity.getDrug(), entity.getPoint());
+                    byDrugAndPoint.setSalePrice(entity.getSalePrice() + byDrugAndPoint.getSalePrice());
+                    byDrugAndPoint.setRealPrice(entity.getRealPrice() + byDrugAndPoint.getRealPrice());
+                    transactionRepo.save(byDrugAndPoint);
+                }
+                if (finish>10){
+                    break;
                 }
             }
         }

@@ -16,4 +16,9 @@ public class PointEntity {
     private Long id;
     private String code;
     private String location;
+
+    public PointEntity(String code, String location) {
+        this.code = code;
+        this.location = location;
+    }
 }
