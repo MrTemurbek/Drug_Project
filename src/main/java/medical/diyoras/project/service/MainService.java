@@ -83,7 +83,6 @@ public class MainService {
                 Row currentRow = rows.next();
                 DrugEntity entity = new DrugEntity();
                 int i = 0;
-                boolean finish = false;
                 for (Cell currentCell : currentRow) {
 
 
@@ -125,10 +124,6 @@ public class MainService {
     @SneakyThrows
     public void importTransaction(MultipartFile file) {
         IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE); // 50MB
-        LinkedHashSet<CheckDTO> entities = transactionRepo.findAll()
-                .stream()
-                .map(CheckDTO::new)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
         Random random = new Random();
         int count = 0;
         int finish = 0;
@@ -188,19 +183,19 @@ public class MainService {
                         double randomDouble = min + (max - min) * random.nextDouble();
                         entity.setSalePrice(Math.round(randomDouble * realPrice));
                     }
-
                     i++;
                 }
-                if (entities.add(new CheckDTO(entity.getDrug().getMaterial(), entity.getPoint().getCode(), entity.getMonth(), entity.getYear()))) {
+                Optional<TransactionEntity> byDrugAndPointAndMonthAndYear = transactionRepo.findByDrugAndPointAndMonthAndYear(entity.getDrug(), entity.getPoint(), entity.getMonth(), entity.getYear());
+                count++;
+                System.out.println("count: " + count);
+                if (byDrugAndPointAndMonthAndYear.isEmpty()) {
                     transactionRepo.save(entity);
-                    count++;
-                    System.out.println("count: " + count);
+
                 } else {
-                    TransactionEntity byDrugAndPoint = transactionRepo.findByDrugAndPointAndMonthAndYear(entity.getDrug(), entity.getPoint(), entity.getMonth(), entity.getYear());
+                    TransactionEntity byDrugAndPoint = byDrugAndPointAndMonthAndYear.get();
                     byDrugAndPoint.setSalePrice(entity.getSalePrice() + byDrugAndPoint.getSalePrice());
                     byDrugAndPoint.setRealPrice(entity.getRealPrice() + byDrugAndPoint.getRealPrice());
                     transactionRepo.save(byDrugAndPoint);
-                    System.out.println("count: " + count);
                 }
                 if (finish > 10) {
                     break;
