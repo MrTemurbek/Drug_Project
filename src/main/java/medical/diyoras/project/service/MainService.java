@@ -1,7 +1,7 @@
 package medical.diyoras.project.service;
 
 import lombok.SneakyThrows;
-import medical.diyoras.project.dto.CheckDTO;
+
 import medical.diyoras.project.entity.DrugEntity;
 import medical.diyoras.project.entity.PointEntity;
 import medical.diyoras.project.entity.TransactionEntity;
