@@ -151,7 +151,7 @@ public class MainService {
                     };
 
                     };
-                    if (cellValue.isBlank()) {
+                    if (cellValue.isBlank() && !isDateCell(currentCell)) {
                         break;
                     }
 
@@ -176,11 +176,11 @@ public class MainService {
                         entity.setQuantity(Double.parseDouble(cellValue) *(-1));
                     } else if (i == 4) {
                         double realPrice = Double.parseDouble(cellValue)*(-1);
-                        entity.setRealPrice(realPrice);
+                        entity.setRealPrice(Math.round(realPrice));
                         double min = 1.10;
                         double max = 1.15;
                         double randomDouble = min + (max - min) * random.nextDouble();
-                        entity.setSalePrice(randomDouble * realPrice);
+                        entity.setSalePrice(Math.round(randomDouble * realPrice));
                     }
 
                     i++;
