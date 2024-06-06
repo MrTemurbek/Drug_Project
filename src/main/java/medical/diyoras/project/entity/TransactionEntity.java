@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "transaction", uniqueConstraints = {@UniqueConstraint(columnNames = {"drug_id", "point_id" })})
+@Table(name = "transaction", uniqueConstraints = {@UniqueConstraint(columnNames = {"drug_id", "point_id", "month", "year" })})
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -16,6 +16,8 @@ public class TransactionEntity {
     private Long id;
     private double quantity;
     private double realPrice;
+    private int month;
+    private int year;
     private double salePrice;
     @ManyToOne(targetEntity = DrugEntity.class)
     @JoinColumn(name= "drug_id")

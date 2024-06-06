@@ -10,4 +10,6 @@ import lombok.NoArgsConstructor;
 public class CheckDTO {
     private Long material;
     private String pointCode;
+    private int month;
+    private int year;
 }

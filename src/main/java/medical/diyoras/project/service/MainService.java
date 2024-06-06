@@ -26,6 +26,8 @@ public class MainService {
     @Autowired
     TransactionRepo transactionRepo;
 
+    final Calendar calendar = Calendar.getInstance();
+
     @SneakyThrows
     public void importPoints(MultipartFile file) {
         IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
@@ -88,7 +90,7 @@ public class MainService {
                         case NUMERIC -> String.valueOf(currentCell.getNumericCellValue());
                         default -> "";
                     };
-                    if (cellValue.isBlank()){
+                    if (cellValue.isBlank()) {
                         break;
                     }
 
@@ -109,10 +111,10 @@ public class MainService {
 
                     i++;
                 }
-                if (entities.add(entity)){
+                if (entities.add(entity)) {
                     drugRepo.save(entity);
                     count++;
-                    System.out.println("count: "+count);
+                    System.out.println("count: " + count);
                 }
             }
         }
@@ -136,35 +138,44 @@ public class MainService {
                 TransactionEntity entity = new TransactionEntity();
                 int i = 0;
                 for (Cell currentCell : currentRow) {
-                    if (currentCell.getCellType() == CellType.BLANK){
+                    if (currentCell.getCellType() == CellType.BLANK) {
                         finish++;
                         break;
                     }
-
-                    String cellValue = switch (currentCell.getCellType()) {
-                        case STRING -> currentCell.getStringCellValue();
-                        case NUMERIC -> String.valueOf(currentCell.getNumericCellValue());
-                        default -> "";
+                    String cellValue = "";
+                    if (!isDateCell(currentCell)) {
+                        cellValue = switch (currentCell.getCellType()) {
+                            case STRING -> currentCell.getStringCellValue();
+                            case NUMERIC -> String.valueOf(currentCell.getNumericCellValue());
+                            default -> "";
                     };
-                    if (cellValue.isBlank()){
+
+                    };
+                    if (cellValue.isBlank()) {
                         break;
                     }
 
                     if (i == 0) {
                         entity.setDrug(drugRepo.getDrugEntitiesByMaterial(Long.parseLong(cellValue)));
-                    } else if (i == 1) {
+                    }
+                    else if (i == 1) {
                         Optional<PointEntity> pointEntitiesByCode = pointRepo.getPointEntitiesByCode(cellValue);
-                        if (pointEntitiesByCode.isPresent()){
+                        if (pointEntitiesByCode.isPresent()) {
                             entity.setPoint(pointEntitiesByCode.get());
                         } else {
                             PointEntity point = pointRepo.save(new PointEntity(cellValue, "-1"));
                             entity.setPoint(point);
                         }
-
+                    } else if (i == 2){
+                        Date date = currentCell.getDateCellValue();
+                        int year = getCalendar(date).get(Calendar.YEAR);
+                        int month = getCalendar(date).get(Calendar.MONTH) + 1;
+                        entity.setMonth(month);
+                        entity.setYear(year);
+                    } else if (i == 3) {
+                        entity.setQuantity(Double.parseDouble(cellValue) *(-1));
                     } else if (i == 4) {
-                        entity.setQuantity(Double.parseDouble(cellValue));
-                    } else if (i == 5) {
-                        double realPrice  = Double.parseDouble(cellValue);
+                        double realPrice = Double.parseDouble(cellValue)*(-1);
                         entity.setRealPrice(realPrice);
                         double min = 1.10;
                         double max = 1.15;
@@ -174,22 +185,36 @@ public class MainService {
 
                     i++;
                 }
-                if (entities.add(new CheckDTO(entity.getDrug().getMaterial(), entity.getPoint().getCode()))){
+                if (entities.add(new CheckDTO(entity.getDrug().getMaterial(), entity.getPoint().getCode(), entity.getMonth(), entity.getYear()))) {
                     transactionRepo.save(entity);
                     count++;
-                    System.out.println("count: "+count);
-                }
-                else {
+                    System.out.println("count: " + count);
+                } else {
                     TransactionEntity byDrugAndPoint = transactionRepo.findByDrugAndPoint(entity.getDrug(), entity.getPoint());
                     byDrugAndPoint.setSalePrice(entity.getSalePrice() + byDrugAndPoint.getSalePrice());
                     byDrugAndPoint.setRealPrice(entity.getRealPrice() + byDrugAndPoint.getRealPrice());
                     transactionRepo.save(byDrugAndPoint);
+                    System.out.println("count: " + count);
                 }
-                if (finish>10){
+                if (finish > 10) {
                     break;
                 }
             }
         }
     }
 
+    private static boolean isDateCell(Cell cell) {
+        if (cell == null || cell.getCellType() != CellType.NUMERIC) {
+            return false;
+        }
+        if (DateUtil.isCellDateFormatted(cell)) {
+            return true;
+        }
+        return false;
+    }
+
+    private Calendar getCalendar(Date date) {
+        calendar.setTime(date);
+        return calendar;
+    }
 }
