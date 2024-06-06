@@ -15,7 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class MainService {
@@ -122,12 +124,16 @@ public class MainService {
 
     @SneakyThrows
     public void importTransaction(MultipartFile file) {
-        IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
-        Set<CheckDTO> entities = new HashSet<>();
+        IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE); // 50MB
+        LinkedHashSet<CheckDTO> entities = transactionRepo.findAll()
+                .stream()
+                .map(CheckDTO::new)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         Random random = new Random();
         int count = 0;
         int finish = 0;
-        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+        try (InputStream inputStream = file.getInputStream();
+             Workbook workbook = new XSSFWorkbook(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rows = sheet.iterator();
             if (rows.hasNext()) {
@@ -143,7 +149,7 @@ public class MainService {
                         break;
                     }
                     String cellValue = "";
-                    if (!isDateCell(currentCell)) {
+                    if (isDateCell(currentCell)) {
                         cellValue = switch (currentCell.getCellType()) {
                             case STRING -> currentCell.getStringCellValue();
                             case NUMERIC -> String.valueOf(currentCell.getNumericCellValue());
@@ -151,7 +157,7 @@ public class MainService {
                     };
 
                     };
-                    if (cellValue.isBlank() && !isDateCell(currentCell)) {
+                    if (cellValue.isBlank() && isDateCell(currentCell)) {
                         break;
                     }
 
@@ -190,7 +196,7 @@ public class MainService {
                     count++;
                     System.out.println("count: " + count);
                 } else {
-                    TransactionEntity byDrugAndPoint = transactionRepo.findByDrugAndPoint(entity.getDrug(), entity.getPoint());
+                    TransactionEntity byDrugAndPoint = transactionRepo.findByDrugAndPointAndMonthAndYear(entity.getDrug(), entity.getPoint(), entity.getMonth(), entity.getYear());
                     byDrugAndPoint.setSalePrice(entity.getSalePrice() + byDrugAndPoint.getSalePrice());
                     byDrugAndPoint.setRealPrice(entity.getRealPrice() + byDrugAndPoint.getRealPrice());
                     transactionRepo.save(byDrugAndPoint);
@@ -205,12 +211,12 @@ public class MainService {
 
     private static boolean isDateCell(Cell cell) {
         if (cell == null || cell.getCellType() != CellType.NUMERIC) {
-            return false;
-        }
-        if (DateUtil.isCellDateFormatted(cell)) {
             return true;
         }
-        return false;
+        if (DateUtil.isCellDateFormatted(cell)) {
+            return false;
+        }
+        return true;
     }
 
     private Calendar getCalendar(Date date) {
